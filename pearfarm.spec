@@ -5,6 +5,7 @@ $spec = Pearfarm_PackageSpec::create(array(Pearfarm_PackageSpec::OPT_BASEDIR => 
              ->setChannel('ardell.pearfarm.org')
              ->setSummary('A notifier for Twilio.')
              ->setDescription('A command to pull down notifications from your Twilio log and email them to you.')
+             ->addPackageDependency('climax', 'apinstein.pearfarm.org')
              ->setReleaseVersion('0.0.1')
              ->setReleaseStability('alpha')
              ->setApiVersion('0.0.1')

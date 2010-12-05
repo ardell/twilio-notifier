@@ -112,7 +112,7 @@ END;
         print("Emailing notification to {$to}:\n{$notificationText}\n\n");
 
         // Now send the mail
-        $mail = mail($to, "Twilio Notification", $notificationText, "From: {$from}");
+        $mail = mail($to, "Twilio Notification", $notificationText, "From: {$from}\r\n");
     }
 
     /**
