@@ -31,21 +31,14 @@ class TwilioNotifierCommand extends CLIMax_BaseCommand
         }
         $twilioAuthInfo['authToken'] = $authToken;
 
-        // The email where we should send notifications
-        $email = $cliController->getEnvironment('email');
-        if (!$email)
-        {
-            throw new Exception("Expected --email to be specified");
-        }
-
         // Fetch notifications from Twilio
         $notifications = $this->_fetchNotificationsFromTwilio($twilioAuthInfo);
 
         // For each notification
         foreach ($notifications as $notification)
         {
-            // Email notification to the specified address
-            $this->_emailNotificationToAddress($notification, $email);
+            // Print notification to STDERR
+            $this->_outputNotificationToStderr($notification);
 
             // Delete the notification from Twilio's server
             $this->_deleteNotificationFromTwilio($twilioAuthInfo, $notification);
@@ -96,7 +89,7 @@ class TwilioNotifierCommand extends CLIMax_BaseCommand
      * @param notification SimpleXMLElement The notification element to send.
      * @param email string The email address to send the notification to.
      */
-    private function _emailNotificationToAddress($notification, $to, $from = 'webmaster@example.com')
+    private function _outputNotificationToStderr($notification)
     {
         $notificationText = <<<END
 {$notification->MessageDate}
@@ -108,11 +101,9 @@ API Version: {$notification->ApiVersion}
 Notification Sid: {$notification->Sid}
 END;
 
-        // For logging.
-        print("Emailing notification to {$to}:\n{$notificationText}\n\n");
-
         // Now send the mail
-        $mail = mail($to, "Twilio Notification", $notificationText, "From: {$from}\r\n");
+        $stderr = fopen('php://stderr', 'w+');
+        fwrite($stderr, $notificationText);
     }
 
     /**
@@ -151,6 +142,5 @@ END;
 CLImaxController::create()
     ->addEnvironmentFlagWithExactlyOneArgument('accountSid',   array('-s', '--account-sid', '--accountSid'))
     ->addEnvironmentFlagWithExactlyOneArgument('authToken', array('-t', '--auth-token', '--authToken'))
-    ->addEnvironmentFlagWithExactlyOneArgument('email',        array('-e', '--email'))
     ->setDefaultCommand(new TwilioNotifierCommand, array('alwaysRuns' => true))
     ->run($argv, $argc);
