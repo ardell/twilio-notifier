@@ -95,6 +95,7 @@ class TwilioNotifierCommand extends CLIMax_BaseCommand
     private function _outputNotificationToStderr($notification)
     {
         $notificationText = <<<END
+===== Twilio Notification =====
 {$notification->MessageDate}
 [Code {$notification->ErrorCode}] {$notification->MessageText}
 
