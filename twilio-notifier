@@ -41,7 +41,10 @@ class TwilioNotifierCommand extends CLIMax_BaseCommand
             $this->_outputNotificationToStderr($notification);
 
             // Delete the notification from Twilio's server
-            $this->_deleteNotificationFromTwilio($twilioAuthInfo, $notification);
+            if ($cliController->getEnvironment('delete'))
+            {
+                $this->_deleteNotificationFromTwilio($twilioAuthInfo, $notification);
+            }
         }
 
         // Exit with a success error code
@@ -121,7 +124,6 @@ END;
 
         // Perform cURL request
         $url = "https://{$accountSid}:{$authToken}@api.twilio.com/2010-04-01/Accounts/{$accountSid}/Notifications/{$notificationSid}";
-        return;
         $ch = curl_init();
         curl_setopt_array($ch, array(
             CURLOPT_URL            => $url,
@@ -142,5 +144,6 @@ END;
 CLImaxController::create()
     ->addEnvironmentFlagWithExactlyOneArgument('accountSid',   array('-s', '--account-sid', '--accountSid'))
     ->addEnvironmentFlagWithExactlyOneArgument('authToken', array('-t', '--auth-token', '--authToken'))
+    ->addEnvironmentFlagSetsValue('delete', true, array('-d', '--delete'))
     ->setDefaultCommand(new TwilioNotifierCommand, array('alwaysRuns' => true))
     ->run($argv, $argc);
