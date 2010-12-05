@@ -1,0 +1,156 @@
+#!/usr/bin/env php
+<?php
+
+require 'climax/CLImax.php';
+
+class TwilioNotifierCommand extends CLIMax_BaseCommand
+{
+
+    /**
+     * Run the Twilio Notifier.  This function gets called
+     * when you run twilio-notifier from the command line.
+     */
+    public function run($arguments, CLImaxController $cliController)
+    {
+        // Gather Twilio authorization info
+        $twilioAuthInfo = array();
+
+        // The account sid (get this from your Twilio account)
+        $accountSid = $cliController->getEnvironment('accountSid');
+        if (!$accountSid)
+        {
+            throw new Exception("Expected --account-sid to be specified");
+        }
+        $twilioAuthInfo['accountSid'] = $accountSid;
+
+        // The authentication token (get this from your Twilio account)
+        $authToken = $cliController->getEnvironment('authToken');
+        if (!$authToken)
+        {
+            throw new Exception("Expected --auth-token to be specified");
+        }
+        $twilioAuthInfo['authToken'] = $authToken;
+
+        // The email where we should send notifications
+        $email = $cliController->getEnvironment('email');
+        if (!$email)
+        {
+            throw new Exception("Expected --email to be specified");
+        }
+
+        // Fetch notifications from Twilio
+        $notifications = $this->_fetchNotificationsFromTwilio($twilioAuthInfo);
+
+        // For each notification
+        foreach ($notifications as $notification)
+        {
+            // Email notification to the specified address
+            $this->_emailNotificationToAddress($notification, $email);
+
+            // Delete the notification from Twilio's server
+            $this->_deleteNotificationFromTwilio($twilioAuthInfo, $notification);
+        }
+
+        // Exit with a success error code
+        return 0;
+    }
+
+    /**
+     * Fetch notifications from Twilio and return them as an array.
+     *
+     * @param accountSid string The Twilio Account SID (get this from your account on Twilio).
+     * @param authToken string The Twilio Auth Token (get this from your account on Twilio).
+     * @return array An array of notifications from Twilio.
+     */
+    private function _fetchNotificationsFromTwilio($twilioAuthInfo)
+    {
+        $accountSid = $twilioAuthInfo['accountSid'];
+        $authToken  = $twilioAuthInfo['authToken'];
+
+        // Perform cURL request
+        $url = "https://{$accountSid}:{$authToken}@api.twilio.com/2010-04-01/Accounts/{$accountSid}/Notifications";
+        $ch = curl_init();
+        curl_setopt_array($ch, array(
+            CURLOPT_URL            => $url,
+            CURLOPT_HEADER         => 0,
+            CURLOPT_RETURNTRANSFER => true,
+        ));
+        $rawXml = curl_exec($ch);
+
+        // Make sure we were successful
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        if ($httpCode < 200 || $httpCode >= 300)
+        {
+            throw new Exception("Got an unsuccessful code ({$httpCode}) from Twilio, expected 200-299.");
+        }
+        curl_close($ch);
+
+        // Parse and return notifications
+        $xmlObject = new SimpleXMLElement($rawXml);
+        return $xmlObject->Notifications->Notification;
+    }
+
+    /**
+     * Email a Twilio notification to the specified address.
+     *
+     * @param notification SimpleXMLElement The notification element to send.
+     * @param email string The email address to send the notification to.
+     */
+    private function _emailNotificationToAddress($notification, $to, $from = 'webmaster@example.com')
+    {
+        $notificationText = <<<END
+{$notification->MessageDate}
+[Code {$notification->ErrorCode}] {$notification->MessageText}
+
+More info: {$notification->MoreInfo}
+Request URL: {$notification->RequestUrl}
+API Version: {$notification->ApiVersion}
+Notification Sid: {$notification->Sid}
+END;
+
+        // For logging.
+        print("Emailing notification to {$to}:\n{$notificationText}\n\n");
+
+        // Now send the mail
+        $mail = mail($to, "Twilio Notification", $notificationText, "From: {$from}");
+    }
+
+    /**
+     * Delete a notification from the Twilio server (so we only get ONE email about
+     * each notification).
+     *
+     * @param twilioAuthInfo array An array of accountSid and authToken.
+     * @param notification SimpleXMLElement The notification element returned by the Twilio API.
+     */
+    private function _deleteNotificationFromTwilio($twilioAuthInfo, $notification)
+    {
+        $accountSid      = $twilioAuthInfo['accountSid'];
+        $authToken       = $twilioAuthInfo['authToken'];
+        $notificationSid = $notification->Sid;
+
+        // Perform cURL request
+        $url = "https://{$accountSid}:{$authToken}@api.twilio.com/2010-04-01/Accounts/{$accountSid}/Notifications/{$notificationSid}";
+        return;
+        $ch = curl_init();
+        curl_setopt_array($ch, array(
+            CURLOPT_URL            => $url,
+            CURLOPT_HEADER         => 0,
+            CURLOPT_CUSTOMREQUEST  => DELETE,
+        ));
+        $rawXml = curl_exec($ch);
+        curl_close($ch);
+    }
+
+}
+
+/**
+ * We use Alan Pinstein's outstanding CLImax to parse arguments
+ * and handle command line stuff.  Hooray for not re-inventing
+ * the wheel!
+ */
+CLImaxController::create()
+    ->addEnvironmentFlagWithExactlyOneArgument('accountSid',   array('-s', '--account-sid', '--accountSid'))
+    ->addEnvironmentFlagWithExactlyOneArgument('authToken', array('-t', '--auth-token', '--authToken'))
+    ->addEnvironmentFlagWithExactlyOneArgument('email',        array('-e', '--email'))
+    ->setDefaultCommand(new TwilioNotifierCommand, array('alwaysRuns' => true))
+    ->run($argv, $argc);
