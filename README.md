@@ -24,3 +24,6 @@ MIT.
 
 ## Todo
 * Perhaps support a callback for what to do on each error? That way people could have SMSs sent to them, or do custom error handling.
+
+## Thanks
+Thanks to [Alan Pinstein](http://github.com/apinstein) for [CLImax](http://github.com/apinstein/climax) which made it super simple to write a command-line app in PHP, and for [Pearfarm](http://www.pearfarm.org) which made it easy for you to install twilio-notifier.
